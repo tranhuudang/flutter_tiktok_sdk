@@ -49,4 +49,7 @@ android {
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     implementation 'com.bytedance.ies.ugc.aweme:opensdk-oversea-external:0.2.1.0'
+    implementation 'com.tiktok.open.sdk:tiktok-open-sdk-core:latest.release'
+    implementation 'com.tiktok.open.sdk:tiktok-open-sdk-auth:latest.release'   // to use authorization api
+    implementation 'com.tiktok.open.sdk:tiktok-open-sdk-share:latest.release'    // to use share api
 }

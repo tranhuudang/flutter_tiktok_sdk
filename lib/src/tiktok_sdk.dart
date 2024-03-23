@@ -33,30 +33,40 @@ class TikTokSDK {
   /// [permissionType] You must apply for permissions at the time of app registration.
   Future<TikTokLoginResult> login({
     required Set<TikTokPermissionType> permissions,
+    required String redirectUri,
+    bool? browserAuthEnabled,
     String? state,
   }) async {
     try {
       final scope =
-          permissions.map((permission) => permission.scopeName).join(',');
+      permissions.map((permission) => permission.scopeName).join(',');
       final result = await _channel.invokeMapMethod<String, Object>(
         'login',
         <String, dynamic>{
           'scope': scope,
+          'redirectUri': redirectUri,
+          'browserAuthEnabled': browserAuthEnabled ?? false,
           'state': state,
         },
       );
 
       if (result != null) {
         final grantedPermissionsStringList =
-            (result['grantedPermissions'] as String).split(',');
+        result["grantedPermissions"] != null
+            ? (result['grantedPermissions'] as String).split(',')
+            : [];
         final grantedPermissions = grantedPermissionsStringList
             .map((permission) => _fromScopeName(permission))
             .whereType<TikTokPermissionType>()
             .toSet();
 
         return TikTokLoginResult(
-          status: TikTokLoginStatus.success,
-          authCode: result["authCode"] as String,
+          status: result["authCode"] != null
+              ? TikTokLoginStatus.success
+              : TikTokLoginStatus.error,
+          authCode:
+          result["authCode"] != null ? result["authCode"] as String : "",
+          codeVerifier: result["codeVerifier"] as String,
           state: result["state"] as String?,
           grantedPermissions: grantedPermissions,
         );

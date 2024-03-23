@@ -15,6 +15,10 @@ import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 import io.flutter.plugin.common.PluginRegistry
+import com.tiktok.open.sdk.auth.AuthApi
+import com.tiktok.open.sdk.auth.AuthRequest
+import com.tiktok.open.sdk.auth.utils.PKCEUtils
+
 
 /** FlutterTiktokSdkPlugin */
 class FlutterTiktokSdkPlugin: FlutterPlugin, MethodCallHandler, ActivityAware, PluginRegistry.NewIntentListener {
@@ -23,22 +27,25 @@ class FlutterTiktokSdkPlugin: FlutterPlugin, MethodCallHandler, ActivityAware, P
   /// This local reference serves to register the plugin with the Flutter Engine and unregister it
   /// when the Flutter Engine is detached from the Activity
   private lateinit var channel : MethodChannel
-  private lateinit var tikTokOpenApi: TikTokOpenApi
+  private lateinit var tikTokOpenApi: AuthApi
 
   var activity: Activity? = null
   private var activityPluginBinding: ActivityPluginBinding? = null
   private var loginResult: Result? = null
+  private var clientKey: String? = null
 
   override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
     channel = MethodChannel(flutterPluginBinding.binaryMessenger, "com.k9i/flutter_tiktok_sdk")
     channel.setMethodCallHandler(this)
   }
 
+
   override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
+    println(call.method);
     when (call.method) {
       "setup" -> {
         val activity = activity
-        if  (activity == null) {
+        if (activity == null) {
           result.error(
                   "no_activity_found",
                   "There is no valid Activity found to present TikTok SDK Login screen.",
@@ -47,26 +54,38 @@ class FlutterTiktokSdkPlugin: FlutterPlugin, MethodCallHandler, ActivityAware, P
           return
         }
 
-        val clientKey = call.argument<String?>("clientKey")
-        TikTokOpenApiFactory.init(TikTokOpenConfig(clientKey))
-        tikTokOpenApi = TikTokOpenApiFactory.create(activity)
+        clientKey = call.argument<String?>("clientKey")
+        tikTokOpenApi = AuthApi(activity = activity)
         result.success(null)
       }
+
       "login" -> {
-        val request = Authorization.Request()
-
         val scope = call.argument<String>("scope")
-        request.scope = scope
         val state = call.argument<String>("state")
-        state?.let {
-          request.state = it
-        }
+        val redirectUrl = call.argument<String>("redirectUri") ?: ""
+        var browserAuthEnabled = call.argument<Boolean>("browserAuthEnabled")
 
-        request.callerLocalEntry = "com.k9i.flutter_tiktok_sdk.TikTokEntryActivity"
+        val codeVerifier = PKCEUtils.generateCodeVerifier()
 
-        tikTokOpenApi.authorize(request)
+        val request = AuthRequest(
+                clientKey = clientKey ?: "",
+                scope = scope ?: "",
+                redirectUri = redirectUrl,
+                state = state,
+                codeVerifier = codeVerifier,
+        )
+//        val authType = if (browserAuthEnabled == true) {
+//          AuthApi.AuthMethod.ChromeTab
+//        } else {
+//          AuthApi.AuthMethod.TikTokApp
+//        }
+        var authType = AuthApi.AuthMethod.TikTokApp
+        //request.callerLocalEntry = "com.k9i.flutter_tiktok_sdk.TikTokEntryActivity"
+
+        tikTokOpenApi.authorize(request, authType)
         loginResult = result
       }
+
       else -> result.notImplemented()
     }
   }
